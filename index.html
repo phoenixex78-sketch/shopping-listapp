@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>쇼핑 리스트</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f0f4f8;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 40px 16px;
+    }
+
+    .container {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+      width: 100%;
+      max-width: 480px;
+      padding: 32px;
+      height: fit-content;
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      color: #1a202c;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    h1 span {
+      font-size: 1.8rem;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+
+    .input-row input {
+      flex: 1;
+      padding: 12px 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      font-size: 1rem;
+      outline: none;
+      transition: border-color 0.2s;
+      color: #2d3748;
+    }
+
+    .input-row input:focus {
+      border-color: #667eea;
+    }
+
+    .input-row input::placeholder {
+      color: #a0aec0;
+    }
+
+    .btn-add {
+      padding: 12px 20px;
+      background: #667eea;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      white-space: nowrap;
+    }
+
+    .btn-add:hover {
+      background: #5a67d8;
+    }
+
+    .btn-add:active {
+      transform: scale(0.97);
+    }
+
+    .btn-add:disabled {
+      background: #a0aec0;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .stats {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+      color: #718096;
+      margin-bottom: 12px;
+      padding: 0 4px;
+    }
+
+    .btn-clear-done {
+      background: none;
+      border: none;
+      color: #e53e3e;
+      font-size: 0.82rem;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 6px;
+      transition: background 0.15s;
+    }
+
+    .btn-clear-done:hover {
+      background: #fff5f5;
+    }
+
+    .list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .list-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      transition: background 0.15s, border-color 0.15s, opacity 0.2s;
+      animation: slideIn 0.2s ease;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .list-item.done {
+      background: #f7fafc;
+      border-color: #e2e8f0;
+      opacity: 0.7;
+    }
+
+    .checkbox {
+      width: 22px;
+      height: 22px;
+      border: 2px solid #cbd5e0;
+      border-radius: 6px;
+      cursor: pointer;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .checkbox.checked {
+      background: #667eea;
+      border-color: #667eea;
+    }
+
+    .checkbox.checked::after {
+      content: '';
+      width: 6px;
+      height: 11px;
+      border: 2.5px solid #fff;
+      border-top: none;
+      border-left: none;
+      transform: rotate(45deg) translateY(-1px);
+    }
+
+    .item-text {
+      flex: 1;
+      font-size: 1rem;
+      color: #2d3748;
+      transition: color 0.15s;
+      word-break: break-word;
+    }
+
+    .list-item.done .item-text {
+      text-decoration: line-through;
+      color: #a0aec0;
+    }
+
+    .btn-delete {
+      background: none;
+      border: none;
+      color: #cbd5e0;
+      font-size: 1.3rem;
+      cursor: pointer;
+      padding: 2px 4px;
+      border-radius: 6px;
+      line-height: 1;
+      transition: color 0.15s, background 0.15s;
+      flex-shrink: 0;
+    }
+
+    .btn-delete:hover {
+      color: #e53e3e;
+      background: #fff5f5;
+    }
+
+    .empty {
+      text-align: center;
+      color: #a0aec0;
+      padding: 32px 0;
+      font-size: 0.95rem;
+    }
+
+    .empty-icon {
+      font-size: 2.5rem;
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    .loading {
+      text-align: center;
+      color: #a0aec0;
+      padding: 32px 0;
+      font-size: 0.95rem;
+    }
+
+    .error-msg {
+      background: #fff5f5;
+      border: 1px solid #fed7d7;
+      color: #c53030;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      margin-bottom: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1><span>🛒</span> 쇼핑 리스트</h1>
+
+    <div class="input-row">
+      <input type="text" id="itemInput" placeholder="아이템을 입력하세요" maxlength="80" />
+      <button class="btn-add" id="btnAdd" onclick="addItem()">추가</button>
+    </div>
+
+    <div id="errorMsg"></div>
+    <div class="stats" id="stats"></div>
+    <ul class="list" id="list"></ul>
+    <div class="loading" id="loading">불러오는 중...</div>
+    <div class="empty" id="empty" style="display:none;">
+      <span class="empty-icon">📋</span>
+      아직 아이템이 없습니다.<br>위에서 추가해 보세요!
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = 'https://xvpncyerbmkdsfpbrnhb.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_rshTFPFf5je8qxw54keRVA_vVJYNxTA';
+    const { createClient } = supabase;
+    const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let items = [];
+
+    function showError(msg) {
+      const el = document.getElementById('errorMsg');
+      el.innerHTML = `<div class="error-msg">${msg}</div>`;
+      setTimeout(() => { el.innerHTML = ''; }, 4000);
+    }
+
+    async function loadItems() {
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('empty').style.display = 'none';
+
+      const { data, error } = await db
+        .from('shopping_items')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      document.getElementById('loading').style.display = 'none';
+
+      if (error) {
+        showError('데이터를 불러오지 못했습니다: ' + error.message);
+        return;
+      }
+
+      items = data || [];
+      render();
+    }
+
+    function render() {
+      const list = document.getElementById('list');
+      const empty = document.getElementById('empty');
+      const stats = document.getElementById('stats');
+
+      list.innerHTML = '';
+
+      if (items.length === 0) {
+        empty.style.display = 'block';
+        stats.innerHTML = '';
+        return;
+      }
+
+      empty.style.display = 'none';
+
+      const doneCount = items.filter(i => i.done).length;
+      const hasDone = doneCount > 0;
+
+      stats.innerHTML = `
+        <span>${items.length}개 중 ${doneCount}개 완료</span>
+        ${hasDone ? `<button class="btn-clear-done" onclick="clearDone()">완료 항목 삭제</button>` : ''}
+      `;
+
+      items.forEach(item => {
+        const li = document.createElement('li');
+        li.className = 'list-item' + (item.done ? ' done' : '');
+
+        const checkbox = document.createElement('div');
+        checkbox.className = 'checkbox' + (item.done ? ' checked' : '');
+        checkbox.onclick = () => toggleItem(item.id);
+
+        const text = document.createElement('span');
+        text.className = 'item-text';
+        text.textContent = item.text;
+
+        const btnDel = document.createElement('button');
+        btnDel.className = 'btn-delete';
+        btnDel.textContent = '×';
+        btnDel.title = '삭제';
+        btnDel.onclick = () => deleteItem(item.id);
+
+        li.appendChild(checkbox);
+        li.appendChild(text);
+        li.appendChild(btnDel);
+        list.appendChild(li);
+      });
+    }
+
+    async function addItem() {
+      const input = document.getElementById('itemInput');
+      const btnAdd = document.getElementById('btnAdd');
+      const text = input.value.trim();
+      if (!text) return;
+
+      btnAdd.disabled = true;
+
+      const { data, error } = await db
+        .from('shopping_items')
+        .insert([{ text, done: false }])
+        .select()
+        .single();
+
+      btnAdd.disabled = false;
+
+      if (error) {
+        showError('추가에 실패했습니다: ' + error.message);
+        return;
+      }
+
+      items.unshift(data);
+      render();
+      input.value = '';
+      input.focus();
+    }
+
+    async function toggleItem(id) {
+      const item = items.find(i => i.id === id);
+      if (!item) return;
+
+      const newDone = !item.done;
+      const { error } = await db
+        .from('shopping_items')
+        .update({ done: newDone })
+        .eq('id', id);
+
+      if (error) {
+        showError('변경에 실패했습니다: ' + error.message);
+        return;
+      }
+
+      item.done = newDone;
+      render();
+    }
+
+    async function deleteItem(id) {
+      const { error } = await db
+        .from('shopping_items')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        showError('삭제에 실패했습니다: ' + error.message);
+        return;
+      }
+
+      items = items.filter(i => i.id !== id);
+      render();
+    }
+
+    async function clearDone() {
+      const doneIds = items.filter(i => i.done).map(i => i.id);
+      if (!doneIds.length) return;
+
+      const { error } = await db
+        .from('shopping_items')
+        .delete()
+        .in('id', doneIds);
+
+      if (error) {
+        showError('삭제에 실패했습니다: ' + error.message);
+        return;
+      }
+
+      items = items.filter(i => !i.done);
+      render();
+    }
+
+    document.getElementById('itemInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') addItem();
+    });
+
+    loadItems();
+  </script>
+</body>
+</html>
